@@ -1,0 +1,7 @@
+sympy
+langgraph
+ollama
+tavily-python
+python-dotenv
+chromadb
+sentence-transformers
