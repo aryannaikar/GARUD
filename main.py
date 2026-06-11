@@ -395,12 +395,20 @@ class GarudWindow(QWidget):
         self.tts.setRate(0.0)  # 0.0 is normal speed (previously 0.3 was too fast)
         self.tts.setPitch(0.0)
         
-        # Try to find a male English voice
-        for voice in self.tts.availableVoices():
-            name = voice.name().lower()
-            if "david" in name or "mark" in name:
-                self.tts.setVoice(voice)
+        # Try to find George (British Male) or David (US Male)
+        voices = self.tts.availableVoices()
+        chosen_voice = None
+        for v in voices:
+            if "george" in v.name().lower():
+                chosen_voice = v
                 break
+        if not chosen_voice:
+            for v in voices:
+                if "david" in v.name().lower() or "mark" in v.name().lower():
+                    chosen_voice = v
+                    break
+        if chosen_voice:
+            self.tts.setVoice(chosen_voice)
                 
         self._build_ui()
         self._start_voice()
@@ -598,6 +606,7 @@ class GarudWindow(QWidget):
     # ── Voice Event Handlers ─────────────
     @pyqtSlot()
     def _on_wake_up(self):
+        self.show()
         self.orb.set_state("awake")
         self.wave.set_active(True)
         self.status_label.setText("🟢  AWAKE  —  listening...")
@@ -609,6 +618,7 @@ class GarudWindow(QWidget):
 
     @pyqtSlot()
     def _on_sleep(self):
+        self.hide()
         self.orb.set_state("idle")
         self.wave.set_active(False)
         self.status_label.setText("⚡  OFFLINE  —  say 'wake up garud'")
@@ -636,6 +646,47 @@ class GarudWindow(QWidget):
         # Drop new commands while already processing
         if self._is_processing:
             print(f"[Dropped — busy] {query}")
+            return
+
+        # Voice Protocol Override
+        lower_q = query.lower()
+        if "change voice" in lower_q:
+            voices = self.tts.availableVoices()
+            current = self.tts.voice()
+            if " to " in lower_q:
+                target = lower_q.split(" to ")[-1].strip().strip(".?!")
+                
+                # Map generic genders to actual voice names
+                target_names = [target]
+                if target in ["male", "boy", "man", "guy"]:
+                    target_names = ["george", "david", "mark"]
+                elif target in ["female", "girl", "woman", "lady"]:
+                    target_names = ["hazel", "zira", "catherine"]
+
+                chosen = None
+                for v in voices:
+                    v_name = v.name().lower()
+                    if any(t in v_name for t in target_names):
+                        chosen = v
+                        break
+                        
+                if chosen:
+                    self.tts.setVoice(chosen)
+                    msg = f"Voice protocol updated. I am now using the {target} voice profile."
+                else:
+                    msg = f"Voice protocol error. Could not locate '{target}' in the system registry."
+            else:
+                idx = 0
+                for i, v in enumerate(voices):
+                    if v.name() == current.name():
+                        idx = i
+                        break
+                next_idx = (idx + 1) % len(voices)
+                self.tts.setVoice(voices[next_idx])
+                msg = f"Voice protocol cycled. I am now using {voices[next_idx].name()}."
+            
+            self._add_message("GARUD", msg)
+            self.tts.say(msg)
             return
         self._is_processing = True
 
@@ -709,5 +760,5 @@ if __name__ == "__main__":
     app.setPalette(palette)
 
     window = GarudWindow()
-    window.show()
+    # The window starts hidden; it will only show when "wake up garud" is detected
     sys.exit(app.exec())
