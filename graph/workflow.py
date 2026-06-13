@@ -14,6 +14,7 @@ from agents.memory_agent import memory_node
 from agents.code_agent import code_node
 from agents.system_agent import system_node
 from agents.vision_agent import vision_node
+from agents.screen_agent import screen_node
 
 workflow = StateGraph(GarudState)
 
@@ -30,6 +31,7 @@ workflow.add_node("memory", memory_node)
 workflow.add_node("code", code_node)
 workflow.add_node("system", system_node)
 workflow.add_node("vision", vision_node)
+workflow.add_node("screen", screen_node)
 
 
 # Supervisor → Agent routing
@@ -51,6 +53,7 @@ workflow.add_conditional_edges(
         "code": "code",
         "system": "system",
         "vision": "vision",
+        "screen": "screen",
     }
 )
 
@@ -64,6 +67,7 @@ workflow.add_edge("memory", END)
 workflow.add_edge("code", END)
 workflow.add_edge("system", END)
 workflow.add_edge("vision", END)
+workflow.add_edge("screen", END)
 
 # Planner → Executor (conditional: keep looping until all tasks done)
 def executor_route(state):

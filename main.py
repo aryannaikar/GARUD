@@ -33,7 +33,7 @@ from PyQt6.QtTextToSpeech import QTextToSpeech
 #  Worker: runs graph.invoke off the main thread
 # ─────────────────────────────────────────
 class QueryWorker(QObject):
-    finished = pyqtSignal(str, bool)   # (result_text, is_chat)
+    finished = pyqtSignal(str, bool, str)   # (result_text, is_chat, screenshot_path)
     task_started = pyqtSignal(int, int, str, str)  # task_idx, total, agent, task
 
     def __init__(self, query: str):
@@ -54,17 +54,19 @@ class QueryWorker(QObject):
             result = graph.invoke(state)
             is_chat = result.get("agent") == "chat"
             final_text = result.get("result", "")
+            screenshot_path = result.get("screenshot_path", "")
             
             # Inject context globally so follow-up questions work seamlessly
             try:
-                from agents.chat_agent import add_to_memory
-                add_to_memory(self.query, final_text)
+                if final_text not in ["Message sent!", "Action cancelled.", "Interface hidden.", "Interface restored. I'm back."]:
+                    from agents.chat_agent import add_to_memory
+                    add_to_memory(self.query, final_text)
             except Exception as e:
                 print(f"Memory update error: {e}")
 
-            self.finished.emit(final_text, is_chat)
+            self.finished.emit(final_text, is_chat, screenshot_path or "")
         except Exception as e:
-            self.finished.emit(f"Error: {e}", False)
+            self.finished.emit(f"Error: {e}", False, "")
 
 # ─────────────────────────────────────────
 #  Custom Grid Card (Premium Background)
@@ -390,25 +392,14 @@ class GarudWindow(QWidget):
         self._drag_pos = None
         self._is_processing = False
         
-        # Initialize native Qt TTS
-        self.tts = QTextToSpeech(self)
-        self.tts.setRate(0.0)  # 0.0 is normal speed (previously 0.3 was too fast)
-        self.tts.setPitch(0.0)
+        # Initialize highly realistic Neural TTS
+        from voice.edge_tts_player import EdgeTTSManager
+        self.tts = EdgeTTSManager(self)
         
-        # Try to find George (British Male) or David (US Male)
+        # Determine the initial voice (defaults to JARVIS-like British male)
         voices = self.tts.availableVoices()
-        chosen_voice = None
-        for v in voices:
-            if "george" in v.name().lower():
-                chosen_voice = v
-                break
-        if not chosen_voice:
-            for v in voices:
-                if "david" in v.name().lower() or "mark" in v.name().lower():
-                    chosen_voice = v
-                    break
-        if chosen_voice:
-            self.tts.setVoice(chosen_voice)
+        chosen_voice = voices[0] # Default JARVIS
+        self.tts.setVoice(chosen_voice)
                 
         self._build_ui()
         self._start_voice()
@@ -643,25 +634,73 @@ class GarudWindow(QWidget):
 
     @pyqtSlot(str)
     def _run_query(self, query: str):
-        # Drop new commands while already processing
+        lower_q = query.lower()
+
+        # ── Cancel / Stop Protocol (Bypass lock) ────────────────
+        cancel_kws = ["stop", "cancel", "nevermind", "never mind", "abort", "halt", "stop what you are doing", "stop talking"]
+        if any(kw == lower_q or lower_q.startswith(kw + " ") for kw in cancel_kws) or "stop what you are doing" in lower_q:
+            if hasattr(self, "_worker_thread") and self._worker_thread.isRunning():
+                self._worker_thread.terminate()
+                self._worker_thread.wait()
+            
+            self._is_processing = False
+            self.tts.stop() # Stop any ongoing speech
+            
+            if self._listener.awake:
+                self.orb.set_state("awake")
+                self.status_label.setText("🟢  AWAKE  — listening...")
+            else:
+                self.orb.set_state("idle")
+                self.status_label.setText("⚡  OFFLINE  — say 'wake up garud'")
+                
+            msg = "Action cancelled."
+            self._add_message("GARUD", msg)
+            self.tts.say(msg)
+            return
+
+        # ── Interface Visibility Protocol (Bypass lock) ─────────
+        hide_kws = ["hide your interface", "hide interface", "hide yourself",
+                    "hide your gui", "hide your window", "go invisible",
+                    "minimize yourself", "hide your hud"]
+        show_kws = ["show your interface", "show interface", "show yourself",
+                    "show your gui", "show your window", "become visible",
+                    "show your hud", "come back", "reappear"]
+
+        if any(kw in lower_q for kw in hide_kws):
+            msg = "Interface hidden. I'm still listening in the background."
+            self.tts.say(msg)
+            self.hide()
+            return
+
+        if any(kw in lower_q for kw in show_kws):
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            msg = "Interface restored. I'm back."
+            self._add_message("GARUD", msg)
+            self.tts.say(msg)
+            return
+
+        # Drop new normal commands while already processing
         if self._is_processing:
             print(f"[Dropped — busy] {query}")
             return
 
         # Voice Protocol Override
         lower_q = query.lower()
-        if "change voice" in lower_q:
+        if "change" in lower_q and "voice" in lower_q:
             voices = self.tts.availableVoices()
             current = self.tts.voice()
             if " to " in lower_q:
                 target = lower_q.split(" to ")[-1].strip().strip(".?!")
                 
                 # Map generic genders to actual voice names
+                words = target.split()
                 target_names = [target]
-                if target in ["male", "boy", "man", "guy"]:
-                    target_names = ["george", "david", "mark"]
-                elif target in ["female", "girl", "woman", "lady"]:
+                if any(w in words for w in ["female", "girl", "woman", "lady"]):
                     target_names = ["hazel", "zira", "catherine"]
+                elif any(w in words for w in ["male", "boy", "man", "guy"]):
+                    target_names = ["george", "david", "mark"]
 
                 chosen = None
                 for v in voices:
@@ -688,6 +727,8 @@ class GarudWindow(QWidget):
             self._add_message("GARUD", msg)
             self.tts.say(msg)
             return
+
+
         self._is_processing = True
 
         self.orb.set_state("thinking")
@@ -711,8 +752,8 @@ class GarudWindow(QWidget):
         
         thread.start()
 
-    @pyqtSlot(str, bool)
-    def _on_result(self, text: str, is_chat: bool):
+    @pyqtSlot(str, bool, str)
+    def _on_result(self, text: str, is_chat: bool, screenshot_path: str):
         self._is_processing = False
 
         # Restore orb state
@@ -727,6 +768,10 @@ class GarudWindow(QWidget):
             self._add_message("GARUD", text)
             clean_text = text.replace("*", "").replace("#", "").replace("`", "")
             self.tts.say(clean_text)
+
+        # If screen agent returned a screenshot, show it inline
+        if screenshot_path and os.path.exists(screenshot_path):
+            self._add_vision_frame(screenshot_path)
 
     # ── Window Dragging ──────────────────
     def mousePressEvent(self, event):

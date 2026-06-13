@@ -12,23 +12,73 @@ def handle_media(query):
     query = query.lower()
 
     if "whatsapp" in query:
-        # Check if they asked for a specific person
         import re
+        
+        # Check for introduction request
+        intro_match = re.search(r'introduce\s+yourself\s+to\s+(.*?)\s+(chat\s+)?on\s+whatsapp', query)
+        if intro_match:
+            person = intro_match.group(1).title()
+            msg = "Hello! I am Garud, an advanced AI sidekick created by Aryan Naikar. He asked me to introduce myself to you!"
+            return open_whatsapp(person, message=msg)
+            
+        # Normal open chat request
         match = re.search(r'open\s+(.*?)\s+(chat\s+)?on\s+whatsapp', query)
         person = match.group(1).title() if match else ""
         return open_whatsapp(person)
 
-    # ── Sending messages (Auto-Typer) ──
-    if query.startswith("send"):
-        import re, time, pyautogui
-        # Extract the message: "send hi to her", "send hello"
-        match = re.search(r'send\s+["\']?(.*?)["\']?(?:\s+to\s+.*)?$', query, re.IGNORECASE)
-        msg = match.group(1).strip() if match else "Hello"
+    # ── Sending & Generating messages (Auto-Typer & Ghostwriter) ──
+    is_generation = any(kw in query for kw in ["type ", "reply ", "apologize", "apology", "message her", "message him"])
+    is_send = query.startswith("send") or "send it" in query
+    
+    if is_generation or is_send:
+        import time, pyautogui
+        
+        try:
+            from agents.chat_agent import _chat_history, _nvidia_client
+            from langchain_core.messages import SystemMessage, HumanMessage
+            
+            if is_generation:
+                sys_prompt = (
+                    "You are a ghostwriter for the user. "
+                    "The user wants you to generate a message to send to someone based on their prompt. "
+                    "Write the EXACT message they should send. Keep it natural, human-like, and appropriate for text messaging (WhatsApp). "
+                    "CRITICAL RULES:\n"
+                    "1. Return ONLY the raw text message to be sent.\n"
+                    "2. DO NOT include quotes, intros, or explanations like 'Here is the apology:'\n"
+                    "3. Write it from the user's perspective (using 'I')."
+                )
+            else:
+                sys_prompt = (
+                    "You are a strict data extraction script, not a conversational AI. "
+                    "The user is asking to send a message. Based on the chat history, extract ONLY the raw text payload to be sent. "
+                    "CRITICAL RULES:\n"
+                    "1. DO NOT reply to the user. DO NOT say 'Sure' or 'I can help'.\n"
+                    "2. DO NOT include the voice command itself (e.g., if they say 'send message hi', output: hi)\n"
+                    "3. If they refer to a previous item (e.g., 'the third one'), find that exact text in the history and output it.\n"
+                    "4. Output strictly the message text, nothing else."
+                )
+            
+            messages = [SystemMessage(content=sys_prompt)] + _chat_history + [HumanMessage(content=f"PROMPT: '{query}'")]
+            response = _nvidia_client.invoke(messages)
+            msg = response.content.strip().strip("'").strip('"')
+            
+            # Reject if the LLM hallucinated a conversational response or grabbed a system message
+            bad_prefixes = ["sure", "i can", "here is", "the message is", "please provide", "i'll send", "message sent"]
+            if not msg or len(msg) > 1000 or msg.lower() == query.lower() or any(msg.lower().startswith(p) for p in bad_prefixes) or "message sent" in msg.lower():
+                raise ValueError(f"Bad LLM extraction: {msg}")
+                
+        except Exception as e:
+            # Fallback to basic regex if NVIDIA fails or no internet
+            import re
+            query_clean = re.sub(r'^(send|type|reply)\s+(a\s+)?(message\s+)?', 'send ', query, flags=re.IGNORECASE)
+            match = re.search(r'send\s+["\']?(.*?)["\']?(?:\s+to\s+.*)?$', query_clean, re.IGNORECASE)
+            msg = match.group(1).strip() if match else "Hello"
+
         # Type and send
         pyautogui.write(msg)
         time.sleep(0.2)
         pyautogui.press('enter')
-        return f"Message sent: '{msg}'"
+        return f"Message sent!"
         
     # ── Skip Ads (YouTube) ──
     if "skip" in query and "ad" in query:

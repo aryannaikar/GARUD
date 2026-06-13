@@ -58,7 +58,7 @@ def rule_supervisor(query: str) -> str:
     # Implicit media actions (don't require app name)
     if q.startswith("play "):
         return "media"
-    if q.startswith("send ") or "send it" in q:
+    if q.startswith("send ") or "send it" in q or q.startswith("introduce ") or "type " in q or "reply " in q or "apologize" in q or "apology" in q or "message her" in q or "message him" in q:
         return "media"
     if "skip" in q and "ad" in q:
         return "media"
@@ -84,15 +84,30 @@ def rule_supervisor(query: str) -> str:
     if q.startswith("remember ") or " forget " in q or q.startswith("forget ") or "delete memory" in q:
         return "memory"
 
+    # ── Screen Reading: read/describe the desktop display ────────────
+    screen_kws = [
+        "read my screen", "read the screen", "what's on my screen",
+        "what is on my screen", "what does my screen say",
+        "look at my screen", "look at the screen",
+        "describe my screen", "summarize my screen",
+        "what's on screen", "what is on screen",
+        "screen says", "read this screen", "read screen",
+        "what app is open", "what window is open",
+        "capture my screen", "screenshot and read",
+    ]
+    if any(kw in q for kw in screen_kws):
+        return "screen"
+
     # ── Vision: camera / object detection queries ──────────────────
     vision_kws = [
         "what's in my hand", "what is in my hand",
         "what do you see", "what can you see",
-        "what am i holding", "what is this",
+        "what am i holding", "what i am holding", "am i holding",
+        "what is this", "what are you seeing",
         "look at", "scan my", "detect",
         "identify this", "identify what",
         "what object", "camera", "show me what",
-        "is there a", "can you see",
+        "is there a", "can you see", "holding", "in front of"
     ]
     if any(kw in q for kw in vision_kws):
         return "vision"

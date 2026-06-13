@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 _sys_llm = ChatNVIDIA(
-    model="meta/llama-3.1-8b-instruct",
+    model="nvidia/nemotron-mini-4b-instruct",
     api_key=os.getenv("NVIDIA_API_KEY"),
     temperature=0.4
 )

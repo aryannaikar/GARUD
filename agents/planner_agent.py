@@ -8,7 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 load_dotenv()
 
 _nvidia_client = ChatNVIDIA(
-    model="meta/llama-3.1-8b-instruct",
+    model="nvidia/nemotron-mini-4b-instruct",
     api_key=os.getenv("NVIDIA_API_KEY"),
     temperature=0,
 )

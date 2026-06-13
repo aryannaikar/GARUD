@@ -59,7 +59,7 @@ def open_antigravity():
     except Exception as e:
         return f"Could not open Antigravity: {e}"
 
-def open_whatsapp(person_name: str = ""):
+def open_whatsapp(person_name: str = "", message: str = ""):
     try:
         os.system("start whatsapp:")
         if person_name:
@@ -67,14 +67,26 @@ def open_whatsapp(person_name: str = ""):
             import pyautogui
             # Give WhatsApp a moment to launch and come into focus
             time.sleep(2.5)
-            # WhatsApp Desktop shortcut to focus search is Ctrl+F
-            pyautogui.hotkey('ctrl', 'f')
-            time.sleep(0.5)
-            # Type the person's name
-            pyautogui.write(person_name)
-            time.sleep(0.8)
-            # Press enter to open the top result
-            pyautogui.press('enter')
+            
+            # If the user says "to her" or "to him", assume the chat is already open!
+            if person_name.lower() not in ["her", "him", "them", "it", "this person"]:
+                # WhatsApp Desktop shortcut to focus search is Ctrl+F
+                pyautogui.hotkey('ctrl', 'f')
+                time.sleep(0.5)
+                # Type the person's name
+                pyautogui.write(person_name)
+                time.sleep(0.8)
+                # Press enter to open the top result
+                pyautogui.press('enter')
+            
+            # If a message was provided, type it and send it
+            if message:
+                time.sleep(0.5)
+                pyautogui.write(message)
+                time.sleep(0.2)
+                pyautogui.press('enter')
+                return f"Message drafted and sent to {person_name}!"
+                
             return f"Opening WhatsApp and navigating to {person_name}'s chat..."
         return "Opening WhatsApp..."
     except Exception as e:
