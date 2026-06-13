@@ -23,7 +23,10 @@ It leverages a powerful **LangGraph multi-agent workflow** routed by a central s
   * 💬 **Chat Agent:** General conversation and contextual memory.
   * 💻 **Code & Executor Agents:** Generates and runs Python code autonomously.
   * 📂 **File & System Agents:** Manages local files, searches directories, and executes OS-level operations.
-  * 👁️ **Vision Agent:** Real-time object detection and visual analysis using YOLOv8.
+  * 👁️ **Vision Agent & Vision Chat:** Real-time object detection and visual analysis using YOLOv8, with interactive questioning.
+  * 🖥️ **Screen Agent:** Reads and analyzes the user's screen locally via OCR and multimodal vision models (e.g. LLaVA).
+  * 📱 **Media Agent:** Controls media playback, opens applications, and handles automated messaging (WhatsApp Ghostwriter).
+  * 🧠 **Planner Agent:** Breaks complex user requests into sequential multi-step tasks.
   * 🌐 **Web Agent:** Browses the internet for real-time information (Tavily integration).
   * 🧮 **Math Agent:** Solves complex equations using SymPy.
 * **Persistent Memory:** Contextual awareness and long-term memory powered by **ChromaDB** and Sentence-Transformers.
@@ -33,11 +36,11 @@ It leverages a powerful **LangGraph multi-agent workflow** routed by a central s
 ## 🛠️ Tech Stack
 
 * **Frontend UI:** PyQt6 (Frameless Window, QPropertyAnimation, QPainter)
-* **Workflow / Routing:** LangGraph, Ollama (Qwen/Llama models)
+* **Intelligence / Routing:** LangGraph, NVIDIA AI API (`nemotron-mini-4b-instruct`), and Ollama (Qwen/Llama models)
 * **Voice:** Whisper (OpenAI), SpeechRecognition, PyQt6 QTextToSpeech
-* **Vision:** OpenCV, YOLOv8 (`garud-vision` module)
+* **Vision & Screen Capture:** OpenCV, YOLOv8 (`garud-vision`), MSS, Tesseract OCR
 * **Memory Backend:** ChromaDB, sentence-transformers
-* **Tools & Utilities:** Tavily (Web Search), SymPy (Math)
+* **Tools & Utilities:** Tavily (Web Search), SymPy (Math), PyAutoGUI
 
 ---
 
@@ -60,8 +63,9 @@ pip install -r requirements.txt
 *(Note: For vision features, you may need to install the dependencies inside `garud-vision/requirements.txt` as well).*
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory and add any required API keys (e.g., for Tavily Web Search):
+Create a `.env` file in the root directory and add your required API keys (NVIDIA is required for core chat/planning):
 ```env
+NVIDIA_API_KEY="your_nvidia_key_here"
 TAVILY_API_KEY="your_tavily_key_here"
 ```
 

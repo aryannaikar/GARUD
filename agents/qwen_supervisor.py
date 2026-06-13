@@ -7,11 +7,10 @@ def rule_supervisor(query: str) -> str:
     q = query.lower()
 
     # ── Planner: multi-step requests ──────────────────────────────
-    if any(kw in q for kw in [" and then ", " after that ", " also ", " then "]):
-        # Only trigger planner for clear multi-action patterns
-        if any(kw in q for kw in [
-            "open", "create", "write", "save", "search", "play", "launch"
-        ]):
+    planner_triggers = [" and ", " then ", " after that ", " also ", " notepad", " save "]
+    if any(kw in q for kw in planner_triggers):
+        # Trigger planner for clear multi-action patterns or file/app combinations
+        if any(kw in q for kw in ["open", "create", "write", "save", "search", "play", "launch"]):
             return "planner"
 
     # ── Math ──────────────────────────────────────────────────────
@@ -41,8 +40,9 @@ def rule_supervisor(query: str) -> str:
     ]
     if any(verb in q for verb in file_verbs) and any(noun in q for noun in file_nouns):
         return "file"
-    if q.startswith("create ") or q.startswith("make ") or q.startswith("write "):
-        return "file"
+    if q.startswith("create ") or q.startswith("make "):
+        if any(noun in q for noun in file_nouns):
+            return "file"
 
     # ── Media: open apps / play music / send messages ─────────────
     media_apps = [
@@ -51,12 +51,16 @@ def rule_supervisor(query: str) -> str:
         "excel", "powerpoint", "vlc", "whatsapp", "telegram",
         "file explorer", "task manager", "settings"
     ]
-    media_verbs = ["open", "launch", "start", "run", "switch to", "go to", "play"]
+    media_verbs = ["open", "launch", "start", "run", "switch to", "go to", "play", "close", "quit", "exit", "kill"]
     if any(app in q for app in media_apps) and any(v in q for v in media_verbs):
         return "media"
         
     # Implicit media actions (don't require app name)
     if q.startswith("play "):
+        return "media"
+    if any(q.startswith(w) for w in ["close", "quit", "exit"]):
+        return "media"
+    if any(kw in q for kw in ["close it", "close this", "close that", "close the window", "close app"]):
         return "media"
     if q.startswith("send ") or "send it" in q or q.startswith("introduce ") or "type " in q or "reply " in q or "apologize" in q or "apology" in q or "message her" in q or "message him" in q:
         return "media"

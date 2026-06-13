@@ -11,6 +11,34 @@ from tools.media_tools import (
 def handle_media(query):
     query = query.lower()
 
+    # ── Close Applications ──
+    if "close" in query or "quit" in query or "exit" in query:
+        import pyautogui
+        if "whatsapp" in query:
+            os.system("taskkill /f /im WhatsApp.exe /im WhatsApp.Root.exe >nul 2>&1")
+            return "Closed WhatsApp."
+        elif "chrome" in query or "google" in query:
+            os.system("taskkill /f /im chrome.exe >nul 2>&1")
+            return "Closed Google Chrome."
+        elif "vscode" in query or "vs code" in query:
+            os.system("taskkill /f /im Code.exe >nul 2>&1")
+            return "Closed Visual Studio Code."
+        elif "youtube" in query:
+            pyautogui.hotkey('ctrl', 'w')
+            return "Closed the active tab."
+        elif "calculator" in query:
+            os.system("taskkill /f /im CalculatorApp.exe >nul 2>&1")
+            return "Closed Calculator."
+        elif "notepad" in query:
+            os.system("taskkill /f /im notepad.exe >nul 2>&1")
+            return "Closed Notepad."
+        elif "settings" in query:
+            os.system("taskkill /f /im SystemSettings.exe >nul 2>&1")
+            return "Closed Settings."
+        else:
+            pyautogui.hotkey('alt', 'f4')
+            return "Closed the active window."
+
     if "whatsapp" in query:
         import re
         

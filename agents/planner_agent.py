@@ -25,7 +25,7 @@ Break the user's request into sequential tasks.
 Available agents:
 - chat   → generates text/content only (NEVER saves files)
 - file   → creates files, saves content to files, opens files
-- media  → opens apps (Chrome, VS Code, YouTube, etc.)
+- media  → opens/closes apps (Chrome, VS Code, YouTube, etc.) and handles windows
 - math   → calculations
 - web    → web searches
 
@@ -63,6 +63,16 @@ Output:
 [
     {{"agent": "media", "task": "Open Chrome"}},
     {{"agent": "web", "task": "Search latest AI news"}}
+]
+
+Example 4:
+User: Write an essay on AI in Notepad
+
+Output:
+[
+    {{"agent": "chat", "task": "Write an essay on AI"}},
+    {{"agent": "file", "task": "Save content as ai_essay.txt"}},
+    {{"agent": "file", "task": "Open ai_essay.txt"}}
 ]
 
 User: {query}
